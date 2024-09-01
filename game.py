@@ -1,99 +1,276 @@
+import os
 import pygame
 
-screenHeight = 400
-screenWidth = 800
+os.environ['SDL_VIDEO_CENTERED'] = '1' 
+pygame.init()
+info = pygame.display.Info()
+screen_width, screen_height = info.current_w, info.current_h
+window_width, window_height = screen_width - 800, screen_height - 150
+screen = pygame.display.set_mode([window_width, window_height])
+
+pygame.display.set_caption('Donkey Kong')
+
+section_width = window_width // 32
+section_height = window_height // 32
+slope = section_height // 8
+
 playerLeft, playerTop, playerWidth, playerHeight = 100, 100, 30, 60
 
+barrel_img = pygame.transform.scale(pygame.image.load('assets/images/barrels/barrel.png'),
+                                    (section_width * 1.5, section_height * 2))
+flames_img = pygame.transform.scale(pygame.image.load('assets/images/fire.png'),
+                                    (section_width * 2, section_height))
+barrel_side = pygame.transform.scale(pygame.image.load('assets/images/barrels/barrel2.png'),
+                                     (section_width * 2, section_height * 2.5))
+dk1 = pygame.transform.scale(pygame.image.load('assets/images/dk/dk1.png'),
+                             (section_width * 5, section_height * 5))
+dk2 = pygame.transform.scale(pygame.image.load('assets/images/dk/dk2.png'),
+                             (section_width * 5, section_height * 5))
+dk3 = pygame.transform.scale(pygame.image.load('assets/images/dk/dk3.png'),
+                             (section_width * 5, section_height * 5))
+peach1 = pygame.transform.scale(pygame.image.load('assets/images/peach/peach1.png'),
+                                (2 * section_width, 3 * section_height))
+peach2 = pygame.transform.scale(pygame.image.load('assets/images/peach/peach2.png'),
+                                (2 * section_width, 3 * section_height))
+fireball = pygame.transform.scale(pygame.image.load('assets/images/fireball.png'),
+                                  (1.5 * section_width, 2 * section_height))
+fireball2 = pygame.transform.scale(pygame.image.load('assets/images/fireball2.png'),
+                                   (1.5 * section_width, 2 * section_height))
+hammer = pygame.transform.scale(pygame.image.load('assets/images/hammer.png'),
+                                   (2 * section_width, 2 * section_height))
+standing = pygame.transform.scale(pygame.image.load('assets/images/mario/standing.png'),
+                                  (2 * section_width, 2.5 * section_height))
+jumping = pygame.transform.scale(pygame.image.load('assets/images/mario/jumping.png'),
+                                 (2 * section_width, 2.5 * section_height))
+running = pygame.transform.scale(pygame.image.load('assets/images/mario/running.png'),
+                                 (2 * section_width, 2.5 * section_height))
+climbing1 = pygame.transform.scale(pygame.image.load('assets/images/mario/climbing1.png'),
+                                   (2 * section_width, 2.5 * section_height))
+climbing2 = pygame.transform.scale(pygame.image.load('assets/images/mario/climbing2.png'),
+                                   (2 * section_width, 2.5 * section_height))
+hammer_stand = pygame.transform.scale(pygame.image.load('assets/images/mario/hammer_stand.png'),
+                                      (2.5 * section_width, 2.5 * section_height))
+hammer_jump = pygame.transform.scale(pygame.image.load('assets/images/mario/hammer_jump.png'),
+                                     (2.5 * section_width, 2.5 * section_height))
+hammer_overhead = pygame.transform.scale(pygame.image.load('assets/images/mario/hammer_overhead.png'),
+                                         (2.5 * section_width, 3.5 * section_height))
+
+start_y = window_height - 2 * section_height
+row2_y = start_y - 4 * section_height
+row3_y = row2_y - 7 * slope - 3 * section_height
+row4_y = row3_y - 4 * section_height
+row5_y = row4_y - 7 * slope - 3 * section_height
+row6_y = row5_y - 4 * section_height
+row6_top = row6_y - 4 * slope
+row5_top = row5_y - 8 * slope
+row4_top = row4_y - 8 * slope
+row3_top = row3_y - 8 * slope
+row2_top = row2_y - 8 * slope
+row1_top = start_y - 5 * slope
+active_level = 0
 
 gameMap = [
-  #left, top, width, height
   [0, 380, 500, 20],
   [500, 375, 300, 25]
 ]
-class Player: 
-  def __init__(self, screen):
-    self.screen = screen
-    self.playerRect = pygame.Rect(playerLeft, playerTop, playerWidth, playerHeight)
-    self.verticalSpeed = 0
-    self.horizontalSpeed = 5
-    self.acceleration = 0.3
-    self.isLineClipping = False
-  
-  def draw(self):
-     pygame.draw.rect(self.screen, "red", self.playerRect) 
 
-  def gravity(self):
-    self.isLineClipping = False
-    for platform in gameMap:
-      clippedLine = self.playerRect.clipline((platform[0], platform[1]), (platform[0] + platform[2], platform[1]))
-      if clippedLine:
-        start, end = clippedLine
-        self.isLineClipping = True
-        self.verticalSpeed = 0
-        x1, y1 = start
-        self.playerRect.update(playerLeft, y1 - playerHeight, playerWidth, playerHeight)
-    
-    if not self.isLineClipping:  
-      self.verticalSpeed += self.acceleration
-      self.playerRect.move_ip(0, self.verticalSpeed)
-      
-  def jump(self):
-    if (self.isLineClipping):
-      self.verticalSpeed = -7
-    while self.verticalSpeed < 0:
-      self.playerRect.move_ip(0, self.verticalSpeed)
-      self.verticalSpeed += self.acceleration
-      self.hasJumped = False
-  
-  def moveLeft(self):
-    self.playerRect.move_ip(-self.horizontalSpeed, 0) 
-    
+levels = [{'bridges': [(1, start_y, 15), (16, start_y - slope, 3),
+                       (19, start_y - 2 * slope, 3), (22, start_y - 3 * slope, 3),
+                       (25, start_y - 4 * slope, 3), (28, start_y - 5 * slope, 3),
+                       (25, row2_y, 3), (22, row2_y - slope, 3),
+                       (19, row2_y - 2 * slope, 3), (16, row2_y - 3 * slope, 3),
+                       (13, row2_y - 4 * slope, 3), (10, row2_y - 5 * slope, 3),
+                       (7, row2_y - 6 * slope, 3), (4, row2_y - 7 * slope, 3),
+                       (2, row2_y - 8 * slope, 2), (4, row3_y, 3),
+                       (7, row3_y - slope, 3), (10, row3_y - 2 * slope, 3),
+                       (13, row3_y - 3 * slope, 3), (16, row3_y - 4 * slope, 3),
+                       (19, row3_y - 5 * slope, 3), (22, row3_y - 6 * slope, 3),
+                       (25, row3_y - 7 * slope, 3), (28, row3_y - 8 * slope, 2),
+                       (25, row4_y, 3), (22, row4_y - slope, 3),
+                       (19, row4_y - 2 * slope, 3), (16, row4_y - 3 * slope, 3),
+                       (13, row4_y - 4 * slope, 3), (10, row4_y - 5 * slope, 3),
+                       (7, row4_y - 6 * slope, 3), (4, row4_y - 7 * slope, 3),
+                       (2, row4_y - 8 * slope, 2), (4, row5_y, 3),
+                       (7, row5_y - slope, 3), (10, row5_y - 2 * slope, 3),
+                       (13, row5_y - 3 * slope, 3), (16, row5_y - 4 * slope, 3),
+                       (19, row5_y - 5 * slope, 3), (22, row5_y - 6 * slope, 3),
+                       (25, row5_y - 7 * slope, 3), (28, row5_y - 8 * slope, 2),
+                       (25, row6_y, 3), (22, row6_y - slope, 3),
+                       (19, row6_y - 2 * slope, 3), (16, row6_y - 3 * slope, 3),
+                       (2, row6_y - 4 * slope, 14), (13, row6_y - 4 * section_height, 6),
+                       (10, row6_y - 3 * section_height, 3)],
+           'ladders': [(12, row2_y + 6 * slope, 2), (12, row2_y + 26 * slope, 2),
+                       (25, row2_y + 11 * slope, 4), (6, row3_y + 11 * slope, 3),
+                       (14, row3_y + 8 * slope, 4), (10, row4_y + 6 * slope, 1),
+                       (10, row4_y + 24 * slope, 2), (16, row4_y + 6 * slope, 5),
+                       (25, row4_y + 9 * slope, 4), (6, row5_y + 11 * slope, 3),
+                       (11, row5_y + 8 * slope, 4), (23, row5_y + 4 * slope, 1),
+                       (23, row5_y + 24 * slope, 2), (25, row6_y + 9 * slope, 4),
+                       (13, row6_y + 5 * slope, 2), (13, row6_y + 25 * slope, 2),
+                       (18, row6_y - 27 * slope, 4), (12, row6_y - 17 * slope, 2),
+                       (10, row6_y - 17 * slope, 2), (12, -5, 13), (10, -5, 13)],
+          'hammers': [(4, row6_top + section_height), (4, row4_top+section_height)],
+           'target': (13, row6_y - 4 * section_height, 3)}]
+
+
+class Player:
+    def __init__(self, screen):
+      self.screen = screen
+      self.playerRect = pygame.Rect(playerLeft, playerTop, playerWidth, playerHeight)
+      self.verticalSpeed = 0
+      self.horizontalSpeed = 200
+      self.acceleration = 0.3
+      self.jumpSpeed = -10
+      self.isJumping = False
+      self.isLineClipping = False
+
+    def draw(self):
+      pygame.draw.rect(self.screen, "red", self.playerRect)
+
+    def gravity(self):
+      self.isLineClipping = False
+      for platform in gameMap:
+        clippedLine = self.playerRect.clipline((platform[0], platform[1]), (platform[0] + platform[2], platform[1]))
+        if clippedLine:
+          start, end = clippedLine
+          self.isLineClipping = True
+          self.verticalSpeed = 0
+          x1, y1 = start
+          self.playerRect.update(self.playerRect.left, y1 - playerHeight, playerWidth, playerHeight)
+          self.isJumping = False
+
+      if not self.isLineClipping:  
+        self.verticalSpeed += self.acceleration
+        self.playerRect.move_ip(0, self.verticalSpeed)
+
+    def jump(self):
+      if not self.isJumping:
+        self.isJumping = True
+        self.verticalSpeed = self.jumpSpeed
+
+      if self.isJumping and self.verticalSpeed < 0:
+        self.verticalSpeed += self.acceleration
+
+    def moveLeft(self, dt):
+      if (self.playerRect.left -self.horizontalSpeed * dt > 0):
+        self.playerRect.move_ip(-self.horizontalSpeed * dt, 0)
+
+    def moveRight(self, dt):
+      if (self.playerRect.right + self.horizontalSpeed * dt < window_width):
+        self.playerRect.move_ip(self.horizontalSpeed * dt, 0)
+
+
+class Bridge:
+    def __init__(self, x_pos, y_pos, length):
+        self.x_pos = x_pos * section_width
+        self.y_pos = y_pos
+        self.length = length
+        self.top = self.draw()
+
+    def draw(self):
+        line_width = 7
+        platform_color = (225, 51, 129)
+        for i in range(self.length):
+            bot_coord = self.y_pos + section_height
+            left_coord = self.x_pos + (section_width * i)
+            mid_coord = left_coord + (section_width * 0.5)
+            right_coord = left_coord + section_width
+            top_coord = self.y_pos
+            # draw 4 lines, top, bot, left diag, right diag
+            pygame.draw.line(screen, platform_color, (left_coord, top_coord),
+                             (right_coord, top_coord), line_width)
+            pygame.draw.line(screen, platform_color, (left_coord, bot_coord),
+                             (right_coord, bot_coord), line_width)
+            pygame.draw.line(screen, platform_color, (left_coord, bot_coord),
+                             (mid_coord, top_coord), line_width)
+            pygame.draw.line(screen, platform_color, (mid_coord, top_coord),
+                             (right_coord, bot_coord), line_width)
+        # get the top platform 'surface'
+        top_line = pygame.rect.Rect((self.x_pos, self.y_pos), (self.length * section_width, 2))
+        # pygame.draw.rect(screen, 'blue', top_line)
+        return top_line
+
+
+class Ladder:
+    def __init__(self, x_pos, y_pos, length):
+        self.x_pos = x_pos * section_width
+        self.y_pos = y_pos
+        self.length = length
+        self.body = self.draw()
+
+    def draw(self):
+        line_width = 3
+        lad_color = 'light blue'
+        lad_height = 0.6
+        for i in range(self.length):
+            top_coord = self.y_pos + lad_height * section_height * i
+            bot_coord = top_coord + lad_height * section_height
+            mid_coord = (lad_height / 2) * section_height + top_coord
+            left_coord = self.x_pos
+            right_coord = left_coord + section_width
+            pygame.draw.line(screen, lad_color, (left_coord, top_coord), (left_coord, bot_coord), line_width)
+            pygame.draw.line(screen, lad_color, (right_coord, top_coord), (right_coord, bot_coord), line_width)
+            pygame.draw.line(screen, lad_color, (left_coord, mid_coord), (right_coord, mid_coord), line_width)
+        body = pygame.rect.Rect((self.x_pos, self.y_pos - section_height),
+                                (section_width, (lad_height * self.length * section_height + section_height)))
+        return body
 class Map:
   def __init__(self, screen):
     self.screen = screen
-    
-  def draw(self):
-    for platform in gameMap:
-      pygame.draw.rect(self.screen, "white", pygame.Rect(platform[0], platform[1], platform[2], platform[3]))
-        
+
+  def draw_screen(self):
+    platforms = []
+    climbers = []
+    ladder_objs = []
+    bridge_objs = []
+
+    ladders = levels[active_level]['ladders']
+    bridges = levels[active_level]['bridges']
+
+    for ladder in ladders:
+        ladder_objs.append(Ladder(*ladder))
+        if ladder[2] >= 3:
+            climbers.append(ladder_objs[-1].body)
+    for bridge in bridges:
+        bridge_objs.append(Bridge(*bridge))
+        platforms.append(bridge_objs[-1].top)
+
+    return platforms, climbers
 
 def main():
-  pygame.init()
-  screen = pygame.display.set_mode((screenWidth, screenHeight))
+  
   clock = pygame.time.Clock()
   running = True
   dt = 0
 
-  player_pos = pygame.Vector2(screen.get_width() / 2, screen.get_height() / 2)
-  
-  player = Player(screen)  
+  player = Player(screen)
   map = Map(screen)
-  
+
   while running:
     for event in pygame.event.get():
       if event.type == pygame.QUIT:
-        running = False
-        
+          running = False
+
     screen.fill((0, 0, 0))
-    
+
     player.gravity()
-    
-    
+
     keys = pygame.key.get_pressed()
     if keys[pygame.K_UP]:
       player.jump()
-    if keys[pygame.K_s]:
-      player_pos.y += 300 * dt
+
     if keys[pygame.K_LEFT]:
-      player.moveLeft()
-    if keys[pygame.K_d]:
-      player_pos.x  += 300 * dt
+      player.moveLeft(dt)
+    if keys[pygame.K_RIGHT]:
+      player.moveRight(dt)
+
     player.draw()
-    map.draw()
+    map.draw_screen()
+
     pygame.display.flip()
-    dt = clock.tick(60) / 1000 # delta time is seconds since last frame, so frame rate remains 60
-    
+    dt = clock.tick(60) / 1000
+
   pygame.quit()
-  
+
 if __name__ == "__main__":
   main()
