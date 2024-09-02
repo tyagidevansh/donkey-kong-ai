@@ -14,7 +14,7 @@ section_width = window_width // 32
 section_height = window_height // 32
 slope = section_height // 8
 
-playerLeft, playerTop, playerWidth, playerHeight = 100, 100, 15, 30
+playerWidth, playerHeight = 30, 30
 
 barrel_img = pygame.transform.scale(pygame.image.load('assets/images/barrels/barrel.png'),
                                     (section_width * 1.5, section_height * 2))
@@ -112,22 +112,41 @@ levels = [{'bridges': [(1, start_y, 15), (16, start_y - slope, 3),
            'target': (13, row6_y - 4 * section_height, 3)}]
 
 
-class Player:
+class Player(pygame.sprite.Sprite):
     def __init__(self, screen):
+        super().__init__()
         self.screen = screen
-        self.playerRect = pygame.Rect(playerLeft, playerTop, playerWidth, playerHeight)
+        self.image = standing
+        self.image = pygame.transform.scale(self.image, (playerWidth, playerHeight))
+        self.image2 = running
+        self.image2 = pygame.transform.scale(self.image2, (playerWidth, playerHeight))
+        self.playerRect = self.image.get_rect()
+        self.playerRect.left = 150
+        self.playerRect.top = screen_height - 200
+        self.isImageFacingLeft = False
+        self.framesSinceSwitch = 0
         self.verticalSpeed = 0
         self.horizontalSpeed = 200
-        self.acceleration = 0.3
-        self.jumpSpeed = -4
+        self.acceleration = 15
+        self.jumpSpeed = -7000
         self.isJumping = False
         self.isLineClipping = False
         self.isClimbing = False
+        self.isMoving = False
 
     def draw(self):
-        pygame.draw.rect(self.screen, "red", self.playerRect)
+        if self.isMoving:
+            if self.framesSinceSwitch < 4:
+                self.screen.blit(self.image2, self.playerRect)
+            else:
+                self.screen.blit(self.image, self.playerRect)
 
-    def gravity(self, platforms):
+            self.framesSinceSwitch = (self.framesSinceSwitch + 1) % 8
+        else:
+            self.screen.blit(self.image, self.playerRect)
+            self.framesSinceSwitch = 0  
+        
+    def gravity(self, platforms, dt):
         if self.isClimbing:  #no gravity when climbing
             return
         self.isLineClipping = False
@@ -141,12 +160,12 @@ class Player:
 
         if not self.isLineClipping:  
             self.verticalSpeed += self.acceleration
-            self.playerRect.move_ip(0, self.verticalSpeed * 3) #the player was jittering so just make it jitter faster than the frame rate
+            self.playerRect.move_ip(0, self.verticalSpeed * dt) #the player was jittering so just make it jitter faster than the frame rate
 
-    def jump(self):
-        if not self.isJumping and self.isLineClipping:
+    def jump(self, dt):
+        if not self.isJumping and self.isLineClipping and not self.isClimbing:
             self.isJumping = True
-            self.verticalSpeed = self.jumpSpeed
+            self.verticalSpeed = self.jumpSpeed * dt
 
         if self.isJumping:
             self.verticalSpeed += self.acceleration
@@ -157,36 +176,46 @@ class Player:
         for ladder in ladders:
             intersection = self.playerRect.clip(ladder)
             intersection_area = intersection.width * intersection.height
-            if intersection_area >= 0.65 * player_area:
+            if intersection_area >= 0.55 * player_area:
                 self.isClimbing = True
-            # if self.playerRect.colliderect(ladder):  # check if the player is colliding with the ladder
-            #     self.isClimbing = True
                 if isClimbingUp:
-                    self.playerRect.move_ip(0, -self.horizontalSpeed * dt)
+                    self.playerRect.move_ip(0, -self.horizontalSpeed * dt / 2)
                 else:
-                    self.playerRect.move_ip(0, self.horizontalSpeed * dt)
+                    self.playerRect.move_ip(0, self.horizontalSpeed * dt / 2)
                 self.verticalSpeed = 0
                 self.isJumping = False
                 break
 
     def moveLeft(self, ladders, dt):
+        self.isMoving = True
         if (self.isClimbing):
             for ladder in ladders:
                 if (not self.playerRect.colliderect(ladder)):
                     self.isClimbing = False
-                    
-        if self.playerRect.left - self.horizontalSpeed * dt > 10:
+        
+        if (not self.isImageFacingLeft):
+            self.image = pygame.transform.flip(self.image, True, False) 
+            self.image2 = pygame.transform.flip(self.image2, True, False)
+            self.isImageFacingLeft = True
+            
+        if self.playerRect.left - self.horizontalSpeed * dt > 2:
             self.playerRect.move_ip(-self.horizontalSpeed * dt, 0)
-
+        
     def moveRight(self, ladders, dt):
+        self.isMoving = True
         if (self.isClimbing):
             for ladder in ladders:
                 if (not self.playerRect.colliderect(ladder)):
                     self.isClimbing = False
-                    
-        if self.playerRect.right + self.horizontalSpeed * dt < window_width - 10:
-            self.playerRect.move_ip(self.horizontalSpeed * dt, 0)
 
+        if (self.isImageFacingLeft):
+            self.image = pygame.transform.flip(self.image, True, False) 
+            self.image2 = pygame.transform.flip(self.image2, True, False)
+            self.isImageFacingLeft = False
+                    
+        if self.playerRect.right + self.horizontalSpeed * dt < window_width - 2:
+            self.playerRect.move_ip(self.horizontalSpeed * dt, 0)
+        
 class Bridge:
     def __init__(self, x_pos, y_pos, length):
         self.x_pos = x_pos * section_width
@@ -270,15 +299,19 @@ def main():
             if event.type == pygame.QUIT:
                 running = False
 
+            if event.type == pygame.KEYUP:
+                if event.key == pygame.K_LEFT or event.key == pygame.K_RIGHT:
+                    player.isMoving = False
+
         screen.fill((0, 0, 0))
 
         platforms, ladders = drawMap()
 
-        player.gravity(platforms)
+        player.gravity(platforms, dt)
 
         keys = pygame.key.get_pressed()
         if keys[pygame.K_SPACE]:
-            player.jump()
+            player.jump(dt)
         if keys[pygame.K_UP]:
             player.climb(ladders, True, dt)
         if keys[pygame.K_DOWN]:
@@ -291,7 +324,7 @@ def main():
         player.draw()
 
         pygame.display.flip()
-        dt = clock.tick(60) / 1000
+        dt = clock.tick(30) / 1000
 
     pygame.quit()
 
