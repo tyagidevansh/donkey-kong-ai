@@ -14,7 +14,7 @@ section_width = window_width // 32
 section_height = window_height // 32
 slope = section_height // 8
 
-playerLeft, playerTop, playerWidth, playerHeight = 100, 100, 30, 60
+playerLeft, playerTop, playerWidth, playerHeight = 100, 100, 15, 30
 
 barrel_img = pygame.transform.scale(pygame.image.load('assets/images/barrels/barrel.png'),
                                     (section_width * 1.5, section_height * 2))
@@ -68,11 +68,10 @@ row3_top = row3_y - 8 * slope
 row2_top = row2_y - 8 * slope
 row1_top = start_y - 5 * slope
 active_level = 0
+isClimbing = False
+isNearLadder = False
 
-gameMap = [
-  [0, 380, 500, 20],
-  [500, 375, 300, 25]
-]
+#calling it levels but i aint adding any more than one level
 
 levels = [{'bridges': [(1, start_y, 15), (16, start_y - slope, 3),
                        (19, start_y - 2 * slope, 3), (22, start_y - 3 * slope, 3),
@@ -115,50 +114,78 @@ levels = [{'bridges': [(1, start_y, 15), (16, start_y - slope, 3),
 
 class Player:
     def __init__(self, screen):
-      self.screen = screen
-      self.playerRect = pygame.Rect(playerLeft, playerTop, playerWidth, playerHeight)
-      self.verticalSpeed = 0
-      self.horizontalSpeed = 200
-      self.acceleration = 0.3
-      self.jumpSpeed = -10
-      self.isJumping = False
-      self.isLineClipping = False
+        self.screen = screen
+        self.playerRect = pygame.Rect(playerLeft, playerTop, playerWidth, playerHeight)
+        self.verticalSpeed = 0
+        self.horizontalSpeed = 200
+        self.acceleration = 0.3
+        self.jumpSpeed = -4
+        self.isJumping = False
+        self.isLineClipping = False
+        self.isClimbing = False
 
     def draw(self):
-      pygame.draw.rect(self.screen, "red", self.playerRect)
+        pygame.draw.rect(self.screen, "red", self.playerRect)
 
-    def gravity(self):
-      self.isLineClipping = False
-      for platform in gameMap:
-        clippedLine = self.playerRect.clipline((platform[0], platform[1]), (platform[0] + platform[2], platform[1]))
-        if clippedLine:
-          start, end = clippedLine
-          self.isLineClipping = True
-          self.verticalSpeed = 0
-          x1, y1 = start
-          self.playerRect.update(self.playerRect.left, y1 - playerHeight, playerWidth, playerHeight)
-          self.isJumping = False
+    def gravity(self, platforms):
+        if self.isClimbing:  #no gravity when climbing
+            return
+        self.isLineClipping = False
+        for platform in platforms:
+            if self.playerRect.colliderect(platform):
+                self.isLineClipping = True
+                self.verticalSpeed = 0
+                self.playerRect.bottom = platform.top
+                self.isJumping = False
+                break
 
-      if not self.isLineClipping:  
-        self.verticalSpeed += self.acceleration
-        self.playerRect.move_ip(0, self.verticalSpeed)
+        if not self.isLineClipping:  
+            self.verticalSpeed += self.acceleration
+            self.playerRect.move_ip(0, self.verticalSpeed * 3) #the player was jittering so just make it jitter faster than the frame rate
 
     def jump(self):
-      if not self.isJumping:
-        self.isJumping = True
-        self.verticalSpeed = self.jumpSpeed
+        if not self.isJumping and self.isLineClipping:
+            self.isJumping = True
+            self.verticalSpeed = self.jumpSpeed
 
-      if self.isJumping and self.verticalSpeed < 0:
-        self.verticalSpeed += self.acceleration
+        if self.isJumping:
+            self.verticalSpeed += self.acceleration
 
-    def moveLeft(self, dt):
-      if (self.playerRect.left -self.horizontalSpeed * dt > 0):
-        self.playerRect.move_ip(-self.horizontalSpeed * dt, 0)
+    def climb(self, ladders, isClimbingUp, dt):
+        self.isClimbing = False
+        player_area = self.playerRect.width * self.playerRect.height
+        for ladder in ladders:
+            intersection = self.playerRect.clip(ladder)
+            intersection_area = intersection.width * intersection.height
+            if intersection_area >= 0.65 * player_area:
+                self.isClimbing = True
+            # if self.playerRect.colliderect(ladder):  # check if the player is colliding with the ladder
+            #     self.isClimbing = True
+                if isClimbingUp:
+                    self.playerRect.move_ip(0, -self.horizontalSpeed * dt)
+                else:
+                    self.playerRect.move_ip(0, self.horizontalSpeed * dt)
+                self.verticalSpeed = 0
+                self.isJumping = False
+                break
 
-    def moveRight(self, dt):
-      if (self.playerRect.right + self.horizontalSpeed * dt < window_width):
-        self.playerRect.move_ip(self.horizontalSpeed * dt, 0)
+    def moveLeft(self, ladders, dt):
+        if (self.isClimbing):
+            for ladder in ladders:
+                if (not self.playerRect.colliderect(ladder)):
+                    self.isClimbing = False
+                    
+        if self.playerRect.left - self.horizontalSpeed * dt > 10:
+            self.playerRect.move_ip(-self.horizontalSpeed * dt, 0)
 
+    def moveRight(self, ladders, dt):
+        if (self.isClimbing):
+            for ladder in ladders:
+                if (not self.playerRect.colliderect(ladder)):
+                    self.isClimbing = False
+                    
+        if self.playerRect.right + self.horizontalSpeed * dt < window_width - 10:
+            self.playerRect.move_ip(self.horizontalSpeed * dt, 0)
 
 class Bridge:
     def __init__(self, x_pos, y_pos, length):
@@ -168,15 +195,14 @@ class Bridge:
         self.top = self.draw()
 
     def draw(self):
-        line_width = 7
-        platform_color = (225, 51, 129)
+        line_width = 3
+        platform_color = (225, 51, 100)
         for i in range(self.length):
             bot_coord = self.y_pos + section_height
             left_coord = self.x_pos + (section_width * i)
             mid_coord = left_coord + (section_width * 0.5)
             right_coord = left_coord + section_width
             top_coord = self.y_pos
-            # draw 4 lines, top, bot, left diag, right diag
             pygame.draw.line(screen, platform_color, (left_coord, top_coord),
                              (right_coord, top_coord), line_width)
             pygame.draw.line(screen, platform_color, (left_coord, bot_coord),
@@ -185,11 +211,8 @@ class Bridge:
                              (mid_coord, top_coord), line_width)
             pygame.draw.line(screen, platform_color, (mid_coord, top_coord),
                              (right_coord, bot_coord), line_width)
-        # get the top platform 'surface'
-        top_line = pygame.rect.Rect((self.x_pos, self.y_pos), (self.length * section_width, 2))
-        # pygame.draw.rect(screen, 'blue', top_line)
+        top_line = pygame.Rect(self.x_pos, self.y_pos, self.length * section_width, 2)
         return top_line
-
 
 class Ladder:
     def __init__(self, x_pos, y_pos, length):
@@ -211,14 +234,11 @@ class Ladder:
             pygame.draw.line(screen, lad_color, (left_coord, top_coord), (left_coord, bot_coord), line_width)
             pygame.draw.line(screen, lad_color, (right_coord, top_coord), (right_coord, bot_coord), line_width)
             pygame.draw.line(screen, lad_color, (left_coord, mid_coord), (right_coord, mid_coord), line_width)
-        body = pygame.rect.Rect((self.x_pos, self.y_pos - section_height),
-                                (section_width, (lad_height * self.length * section_height + section_height)))
+        body = pygame.Rect(self.x_pos, self.y_pos - section_height,
+                           section_width, lad_height * self.length * section_height + section_height)
         return body
-class Map:
-  def __init__(self, screen):
-    self.screen = screen
 
-  def draw_screen(self):
+def drawMap():
     platforms = []
     climbers = []
     ladder_objs = []
@@ -239,38 +259,41 @@ class Map:
 
 def main():
   
-  clock = pygame.time.Clock()
-  running = True
-  dt = 0
+    clock = pygame.time.Clock()
+    running = True
+    dt = 0
 
-  player = Player(screen)
-  map = Map(screen)
+    player = Player(screen)
 
-  while running:
-    for event in pygame.event.get():
-      if event.type == pygame.QUIT:
-          running = False
+    while running:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
 
-    screen.fill((0, 0, 0))
+        screen.fill((0, 0, 0))
 
-    player.gravity()
+        platforms, ladders = drawMap()
 
-    keys = pygame.key.get_pressed()
-    if keys[pygame.K_UP]:
-      player.jump()
+        player.gravity(platforms)
 
-    if keys[pygame.K_LEFT]:
-      player.moveLeft(dt)
-    if keys[pygame.K_RIGHT]:
-      player.moveRight(dt)
+        keys = pygame.key.get_pressed()
+        if keys[pygame.K_SPACE]:
+            player.jump()
+        if keys[pygame.K_UP]:
+            player.climb(ladders, True, dt)
+        if keys[pygame.K_DOWN]:
+            player.climb(ladders, False, dt)
+        if keys[pygame.K_LEFT]:
+            player.moveLeft(ladders, dt)
+        if keys[pygame.K_RIGHT]:
+            player.moveRight(ladders, dt)
 
-    player.draw()
-    map.draw_screen()
+        player.draw()
 
-    pygame.display.flip()
-    dt = clock.tick(60) / 1000
+        pygame.display.flip()
+        dt = clock.tick(60) / 1000
 
-  pygame.quit()
+    pygame.quit()
 
 if __name__ == "__main__":
-  main()
+    main()
