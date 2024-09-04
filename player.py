@@ -32,15 +32,16 @@ class Player(pygame.sprite.Sprite):
         self.isMoving = False
 
     def draw(self):
-        if self.isMoving:
+        if self.isJumping:
+            self.screen.blit(self.imageJump, self.playerRect)
+        elif self.isMoving:
             if self.framesSinceSwitch < 4:
                 self.screen.blit(self.imageRun, self.playerRect)
             else:
                 self.screen.blit(self.imageStand, self.playerRect)
 
             self.framesSinceSwitch = (self.framesSinceSwitch + 1) % 8
-        elif self.isJumping:
-            self.screen.blit(self.imageJump, self.playerRect)
+        
         elif self.isClimbing:
             if self.framesSinceSwitchClimb < 4:
                 self.screen.blit(self.imageClimb1, self.playerRect)
@@ -101,6 +102,7 @@ class Player(pygame.sprite.Sprite):
         if (not self.isImageFacingLeft):
             self.imageStand = pygame.transform.flip(self.imageStand, True, False) 
             self.imageRun = pygame.transform.flip(self.imageRun, True, False)
+            self.imageJump = pygame.transform.flip(self.imageJump, True, False)
             self.isImageFacingLeft = True
             
         if self.playerRect.left - self.horizontalSpeed * dt > 2:
@@ -116,6 +118,7 @@ class Player(pygame.sprite.Sprite):
         if (self.isImageFacingLeft):
             self.imageStand = pygame.transform.flip(self.imageStand, True, False) 
             self.imageRun = pygame.transform.flip(self.imageRun, True, False)
+            self.imageJump = pygame.transform.flip(self.imageJump, True, False)
             self.isImageFacingLeft = False
                     
         if self.playerRect.right + self.horizontalSpeed * dt < window_width - 2:

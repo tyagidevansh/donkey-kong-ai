@@ -15,8 +15,9 @@ section_height = window_height // 32
 slope = section_height // 8
 
 playerWidth, playerHeight = 30, 30
+barrelX, barrelY = 70, screen_height - 250
 
-barrel_img = pygame.transform.scale(pygame.image.load('assets/images/barrels/barrel.png'),
+barrel_img1 = pygame.transform.scale(pygame.image.load('assets/images/barrels/barrel.png'),
                                     (section_width * 1.5, section_height * 2))
 flames_img = pygame.transform.scale(pygame.image.load('assets/images/fire.png'),
                                     (section_width * 2, section_height))
@@ -54,6 +55,9 @@ hammer_jump = pygame.transform.scale(pygame.image.load('assets/images/mario/hamm
                                      (2.5 * section_width, 2.5 * section_height))
 hammer_overhead = pygame.transform.scale(pygame.image.load('assets/images/mario/hammer_overhead.png'),
                                          (2.5 * section_width, 3.5 * section_height))
+fire_barrel1 = pygame.transform.scale(pygame.image.load('assets/images/barrels/fire_barrel1.png'), (playerWidth, playerHeight * 2))
+
+fire_barrel2 = pygame.transform.scale(pygame.image.load('assets/images/barrels/fire_barrel2.png'), (playerWidth, playerHeight * 2))
 
 start_y = window_height - 2 * section_height
 row2_y = start_y - 4 * section_height
