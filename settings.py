@@ -18,7 +18,7 @@ playerWidth, playerHeight = 30, 30
 barrelX, barrelY = 70, screen_height - 250
 
 barrel_img1 = pygame.transform.scale(pygame.image.load('assets/images/barrels/barrel.png'),
-                                    (section_width * 1.5, section_height * 2))
+                                    (section_width * 0.5, section_height * 0.5))
 flames_img = pygame.transform.scale(pygame.image.load('assets/images/fire.png'),
                                     (section_width * 2, section_height))
 barrel_side = pygame.transform.scale(pygame.image.load('assets/images/barrels/barrel2.png'),

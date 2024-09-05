@@ -1,3 +1,4 @@
+import random
 import pygame
 from settings import *
 
@@ -36,7 +37,9 @@ class Barrel(pygame.sprite.Sprite):
       self.gravity(dt)     
       
       if self.barrelRect.right <= barrelX and self.barrelRect.bottom > barrelY:
-        self.isAlive = False        
+        self.isAlive = False       
+      
+    self.climbDown(dt) 
 
   def gravity(self, dt):
     self.isLineClipping = False
@@ -48,5 +51,18 @@ class Barrel(pygame.sprite.Sprite):
     if not self.isLineClipping:
       self.barrelRect.bottom += self.speed * dt / 2       
   
+  def climbDown(self, dt):  
+    detectionZone = pygame.Rect(self.barrelRect.left, self.barrelRect.bottom, self.barrelRect.width - 20, 7)
+  
+    for ladder in self.ladders:
+      ladderBelow = detectionZone.colliderect(ladder)
+      intersection = self.barrelRect.clip(ladder)
+      intersectionArea = intersection.width * intersection.height
+      if ladderBelow:
+        self.isClimbing = random.randint(0, 1) > 0.5
+        if self.isClimbing:
+          self.barrelRect.move_ip(0, self.speed * dt / 2)
+          self.isClimbing = False
+            
   def draw(self):
     screen.blit(self.barrelSide, self.barrelRect)

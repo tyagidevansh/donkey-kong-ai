@@ -19,6 +19,7 @@ class Player(pygame.sprite.Sprite):
         self.imageClimb2 = pygame.transform.scale(self.imageClimb2, (playerWidth, playerHeight))
         self.playerRect.left = 150
         self.playerRect.top = screen_height - 200
+        self.player_area = self.playerRect.width * self.playerRect.height       
         self.isImageFacingLeft = False
         self.framesSinceSwitch = 0
         self.framesSinceSwitchClimb = 0
@@ -78,12 +79,15 @@ class Player(pygame.sprite.Sprite):
 
     def climb(self, ladders, isClimbingUp, dt):
         self.isClimbing = False
-        player_area = self.playerRect.width * self.playerRect.height
+        detection_zone = pygame.Rect(self.playerRect.left + 5, self.playerRect.bottom, self.playerRect.width - 20, 7)
+        
         for ladder in ladders:
             intersection = self.playerRect.clip(ladder)
+            ladder_below = detection_zone.colliderect(ladder)
+            
             intersection_area = intersection.width * intersection.height
-            if intersection_area >= 0.55 * player_area:
-                self.isClimbing = True
+            if intersection_area >= 0.55 * self.player_area or ladder_below:
+                self.isClimbing = True  
                 if isClimbingUp:
                     self.playerRect.move_ip(0, -self.horizontalSpeed * dt / 2)
                 else:
@@ -123,4 +127,13 @@ class Player(pygame.sprite.Sprite):
                     
         if self.playerRect.right + self.horizontalSpeed * dt < window_width - 2:
             self.playerRect.move_ip(self.horizontalSpeed * dt, 0)
+    
+    def checkBarrelCollision(self, barrels):
+        for barrel in barrels:
+            intersection = self.playerRect.clip(barrel.barrelRect)
+            intersection_area = intersection.width * intersection.height
+            if intersection_area >= 0.33 * self.player_area:
+                #print("collision!!")
+                return False
         
+        return True   

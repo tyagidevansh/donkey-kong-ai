@@ -79,6 +79,8 @@ def main():
             barrel.update(dt)
             barrel.draw()
         
+        player.checkBarrelCollision(barrels)
+        
         if framesSinceSwitch < 16:
             screen.blit(fire_barrel1, (barrelX, barrelY))
         else:
