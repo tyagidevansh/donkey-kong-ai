@@ -13,12 +13,13 @@ pygame.display.set_caption('Donkey Kong')
 section_width = window_width // 32
 section_height = window_height // 32
 slope = section_height // 8
+peachPos = (190, 120)
 
 playerWidth, playerHeight = 30, 30
 barrelX, barrelY = 70, screen_height - 250
 
 barrel_img1 = pygame.transform.scale(pygame.image.load('assets/images/barrels/barrel.png'),
-                                    (section_width * 0.5, section_height * 0.5))
+                                    (playerWidth, playerHeight))
 flames_img = pygame.transform.scale(pygame.image.load('assets/images/fire.png'),
                                     (section_width * 2, section_height))
 barrel_side = pygame.transform.scale(pygame.image.load('assets/images/barrels/barrel2.png'),
@@ -26,13 +27,13 @@ barrel_side = pygame.transform.scale(pygame.image.load('assets/images/barrels/ba
 dk1 = pygame.transform.scale(pygame.image.load('assets/images/dk/dk1.png'),
                              (section_width * 5, section_height * 5))
 dk2 = pygame.transform.scale(pygame.image.load('assets/images/dk/dk2.png'),
-                             (section_width * 5, section_height * 5))
+                             (section_width * 5.5, section_height * 5.5))
 dk3 = pygame.transform.scale(pygame.image.load('assets/images/dk/dk3.png'),
                              (section_width * 5, section_height * 5))
 peach1 = pygame.transform.scale(pygame.image.load('assets/images/peach/peach1.png'),
-                                (2 * section_width, 3 * section_height))
+                                (1.5 * playerWidth, 1.5 * playerHeight))
 peach2 = pygame.transform.scale(pygame.image.load('assets/images/peach/peach2.png'),
-                                (2 * section_width, 3 * section_height))
+                                (1.3 * playerWidth, 1.3 * playerHeight))
 fireball = pygame.transform.scale(pygame.image.load('assets/images/fireball.png'),
                                   (1.5 * section_width, 2 * section_height))
 fireball2 = pygame.transform.scale(pygame.image.load('assets/images/fireball2.png'),

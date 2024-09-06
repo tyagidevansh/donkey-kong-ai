@@ -1,4 +1,5 @@
 import pygame
+import random
 from player import Player
 from bridge import Bridge
 from ladder import Ladder
@@ -34,6 +35,11 @@ def main():
     barrels = []
     timeSinceLastSpawn = 0
     framesSinceSwitch = 0
+    timeSinceDeath = 0
+    
+    dk = dk2
+    dkPos = (75, 105)
+    peach = peach2
     
     while running:
         for event in pygame.event.get():
@@ -45,8 +51,10 @@ def main():
                     player.isMoving = False
 
         screen.fill((0, 0, 0))
-        
         platforms, ladders = drawMap()
+        screen.blit(dk, dkPos)
+        screen.blit(peach, peachPos)
+        
 
         player.gravity(platforms, dt)
 
@@ -65,9 +73,18 @@ def main():
         player.draw()
         
         timeSinceLastSpawn += dt
-        if timeSinceLastSpawn > 2:
+        
+        if 0.5 < timeSinceLastSpawn < 1:
+            dk = dk2
+            dkPos = (75, 105)
+        if timeSinceLastSpawn > 1.5:
+            dk = dk3
+            dkPos = (80, 112)
+        
+        if timeSinceLastSpawn > (random.randint(30, 60) / 10):
             timeSinceLastSpawn = 0
-            barrels.append(Barrel(screen, platforms, ladders, 200, 215))
+            dk = dk1
+            barrels.append(Barrel(screen, platforms, ladders, 110, 215))
             i = 0
             while i < len(barrels):
                 if not barrels[i].isAlive:
@@ -79,8 +96,11 @@ def main():
             barrel.update(dt)
             barrel.draw()
         
-        player.checkBarrelCollision(barrels)
-        
+        if player.checkBarrelCollision(barrels):
+            player.reset()
+            barrels.clear()
+            pygame.time.wait(1000)
+            
         if framesSinceSwitch < 16:
             screen.blit(fire_barrel1, (barrelX, barrelY))
         else:
@@ -90,7 +110,7 @@ def main():
 
         pygame.display.flip()
         dt = clock.tick(30) / 1000
-
+    
     pygame.quit()
 
 if __name__ == "__main__":

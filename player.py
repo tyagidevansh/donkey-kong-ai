@@ -26,7 +26,7 @@ class Player(pygame.sprite.Sprite):
         self.verticalSpeed = 0
         self.horizontalSpeed = 200
         self.acceleration = 15
-        self.jumpSpeed = -7000
+        self.jumpSpeed = -7500
         self.isJumping = False
         self.isLineClipping = False
         self.isClimbing = False
@@ -52,6 +52,9 @@ class Player(pygame.sprite.Sprite):
         else:
             self.screen.blit(self.imageStand, self.playerRect)
             self.framesSinceSwitch = 0  
+
+        if self.playerRect.left < peachPos[1] + 90 and self.playerRect.bottom <= peachPos[0]:
+            print("victory")
         
     def gravity(self, platforms, dt):
         if self.isClimbing:  #no gravity when climbing
@@ -134,6 +137,11 @@ class Player(pygame.sprite.Sprite):
             intersection_area = intersection.width * intersection.height
             if intersection_area >= 0.33 * self.player_area:
                 #print("collision!!")
-                return False
+                return True
         
-        return True   
+        return False   
+
+    def reset(self):
+        self.playerRect.left = 150
+        self.playerRect.top = screen_height - 200
+        self.isImageFacingLeft = False
