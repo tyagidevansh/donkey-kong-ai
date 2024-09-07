@@ -24,6 +24,8 @@ flames_img = pygame.transform.scale(pygame.image.load('assets/images/fire.png'),
                                     (section_width * 2, section_height))
 barrel_side = pygame.transform.scale(pygame.image.load('assets/images/barrels/barrel2.png'),
                                      (section_width * 2, section_height * 2.5))
+barrel_stack = pygame.transform.scale(pygame.image.load('assets/images/barrels/stack.png'),
+                                     (section_width * 3, section_height * 4))
 dk1 = pygame.transform.scale(pygame.image.load('assets/images/dk/dk1.png'),
                              (section_width * 5, section_height * 5))
 dk2 = pygame.transform.scale(pygame.image.load('assets/images/dk/dk2.png'),

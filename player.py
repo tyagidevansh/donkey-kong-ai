@@ -1,4 +1,5 @@
 import pygame
+import math
 from settings import *
 
 class Player(pygame.sprite.Sprite):
@@ -21,6 +22,7 @@ class Player(pygame.sprite.Sprite):
         self.playerRect.top = screen_height - 200
         self.player_area = self.playerRect.width * self.playerRect.height       
         self.isImageFacingLeft = False
+        self.gameWon = False
         self.framesSinceSwitch = 0
         self.framesSinceSwitchClimb = 0
         self.verticalSpeed = 0
@@ -30,7 +32,9 @@ class Player(pygame.sprite.Sprite):
         self.isJumping = False
         self.isLineClipping = False
         self.isClimbing = False
+        self.isNearLadder = False
         self.isMoving = False
+        self.score = 0
 
     def draw(self):
         if self.isJumping:
@@ -54,6 +58,8 @@ class Player(pygame.sprite.Sprite):
             self.framesSinceSwitch = 0  
 
         if self.playerRect.left < peachPos[1] + 90 and self.playerRect.bottom <= peachPos[0]:
+            self.score += 1000
+            self.gameWon = True
             print("victory")
         
     def gravity(self, platforms, dt):
@@ -101,10 +107,13 @@ class Player(pygame.sprite.Sprite):
 
     def moveLeft(self, ladders, dt):
         self.isMoving = True
-        if (self.isClimbing):
-            for ladder in ladders:
-                if (not self.playerRect.colliderect(ladder)):
+        for ladder in ladders:
+            if (not self.playerRect.colliderect(ladder)):
+                self.isNearLadder = False
+                if self.isClimbing:    
                     self.isClimbing = False
+            else:
+                self.isNearLadder = True   
         
         if (not self.isImageFacingLeft):
             self.imageStand = pygame.transform.flip(self.imageStand, True, False) 
@@ -117,10 +126,13 @@ class Player(pygame.sprite.Sprite):
         
     def moveRight(self, ladders, dt):
         self.isMoving = True
-        if (self.isClimbing):
-            for ladder in ladders:
-                if (not self.playerRect.colliderect(ladder)):
+        for ladder in ladders:
+            if (not self.playerRect.colliderect(ladder)):
+                self.isNearLadder = False
+                if self.isClimbing:    
                     self.isClimbing = False
+            else:
+                self.isNearLadder = True    
 
         if (self.isImageFacingLeft):
             self.imageStand = pygame.transform.flip(self.imageStand, True, False) 
@@ -135,13 +147,35 @@ class Player(pygame.sprite.Sprite):
         for barrel in barrels:
             intersection = self.playerRect.clip(barrel.barrelRect)
             intersection_area = intersection.width * intersection.height
+            if 0 < intersection_area < 0.3 * self.player_area:
+                self.score += 20
             if intersection_area >= 0.33 * self.player_area:
                 #print("collision!!")
                 return True
         
         return False   
 
+    def nearestBarrels(self, barrels):
+        nearest = []
+        for barrel in barrels:
+            p = self.playerRect.center
+            b = barrel.barrelRect.center
+            
+            distance = math.sqrt((b[0] - p[0]) ** 2 + (b[1] - p[1]) ** 2)
+            nearest.append([distance, b[0], b[1]])
+            
+        nearest.sort(key = lambda x:x[0])
+        
+        while len(nearest) < 5:
+            nearest.append([0, 0, 0])
+        
+        return nearest[:5]
+
     def reset(self):
         self.playerRect.left = 150
         self.playerRect.top = screen_height - 200
-        self.isImageFacingLeft = False
+        if not self.gameWon:
+            self.score = 0
+        else:
+            self.gameWon = False
+        #self.isImageFacingLeft = False
