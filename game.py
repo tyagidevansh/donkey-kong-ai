@@ -7,7 +7,9 @@ from bridge import Bridge
 from ladder import Ladder
 from barrel import Barrel
 from settings import *
-
+import matplotlib.pyplot as plt
+import graphviz
+from PIL import Image, ImageOps
 
 def drawMap():
     platforms = []
@@ -128,6 +130,30 @@ def main():
     
     pygame.quit()
 
+def visualize_net(genome, config, filename="network"):
+    dot = graphviz.Digraph(format="png", engine="dot")
+    dot.attr(rankdir='LR', size='10,10', ratio='expand')
+    
+    for node_key in genome.nodes:
+        if node_key in config.genome_config.input_keys:
+            dot.node(str(node_key), label=str(node_key), color="green")
+        elif node_key in config.genome_config.output_keys:
+            dot.node(str(node_key), label=str(node_key), color="red")
+        else:
+            dot.node(str(node_key), label=str(node_key), color="blue")
+
+    for cg in genome.connections.values():
+        if cg.enabled:
+            dot.edge(str(cg.key[0]), str(cg.key[1]), label=f"{cg.weight:.2f}")
+
+    dot.attr(dpi='600') 
+    dot.render(filename, cleanup=True)
+    
+    if os.path.exists(f"{filename}.png"):
+        print(f"{filename}.png was successfully created.")
+    else:
+        print(f"Failed to create {filename}.png.")      
+        
 def eval_genomes(genomes, config):
     nets = []
     players = []
@@ -135,14 +161,18 @@ def eval_genomes(genomes, config):
     barrels = []
     timeSinceLastSpawn = 0
     dt = 0
+    framesSinceSwitch = 0
     clock = pygame.time.Clock()
 
-    #font = pygame.font.Font("assets/fonts/Tiny5-Regular.ttf", 36)
-    
+    font = pygame.font.Font("assets/fonts/Tiny5-Regular.ttf", 36) 
+    lastY = window_height - 200
     lastScore = 0
     dk = dk2
     dkPos = (75, 105)
     peach = peach2
+    
+    best_fitness = -float('inf')  
+    best_genome = None
     
     for genome_id, genome in genomes:
         net = neat.nn.FeedForwardNetwork.create(genome, config)
@@ -164,9 +194,17 @@ def eval_genomes(genomes, config):
         screen.blit(barrel_stack, (20, 130))
         
         timeSinceLastSpawn += dt
+        
         if timeSinceLastSpawn > (random.randint(20, 50) / 10):
             timeSinceLastSpawn = 0
+            dk = dk1
             barrels.append(Barrel(screen, platforms, ladders, 110, 215))
+            i = 0
+            while i < len(barrels):
+                if not barrels[i].isAlive:
+                    barrels.pop(i)
+                    i -= 1
+                i += 1
         
         for x, player in enumerate(players):
             player.gravity(platforms, dt)
@@ -194,26 +232,61 @@ def eval_genomes(genomes, config):
 
             player.draw()
 
+        timeSinceLastSpawn += dt
+        
+        if 0.5 < timeSinceLastSpawn < 1:
+            dk = dk2
+            dkPos = (75, 105)
+        if timeSinceLastSpawn > 1.5:
+            dk = dk3
+            dkPos = (80, 112)
+
         for barrel in barrels:
             barrel.update(dt)
             barrel.draw()
 
         for x, player in enumerate(players):
             if player.checkBarrelCollision(barrels):
-                ge[x].fitness -= 1
+                ge[x].fitness -= 100 
                 players.pop(x)
                 nets.pop(x)
                 ge.pop(x)
             else:
-                ge[x].fitness += 1  # Reward survival
+                height_diff = player.playerRect.top - player.lastY
+                ge[x].fitness += height_diff * 10
+                player.lastY = player.playerRect.top
+                
+                score_diff = player.score - player.lastScore
+                ge[x].fitness += score_diff * 10 
+                player.lastScore = player.score #score already includes reward for pauline and jumping over barrels
+                
+                ge[x].fitness += 0.1 #just for survival
+
+
+                if ge[x].fitness > best_fitness:
+                    best_fitness = ge[x].fitness
+                    best_genome = ge[x]
+
+        # if best_genome is not None:
+        #     visualize_net(best_genome, config)
+        #     network_img = pygame.image.load("network.png")
+        #     #screen.blit(network_img, (10, 400))  # Adjust the position as needed
 
         if len(players) == 0:
             break
+        
+        if framesSinceSwitch < 16:
+            screen.blit(fire_barrel1, (barrelX, barrelY))
+        else:
+            screen.blit(fire_barrel2, (barrelX, barrelY))
+        
+        framesSinceSwitch = (framesSinceSwitch + 1) % 32 
+
+        fitness_text = font.render(f'Best Fitness: {int(best_fitness)}', True, (255, 255, 255))
+        screen.blit(fitness_text, (100, 10))
 
         pygame.display.flip()
         dt = clock.tick(30) / 1000
-
-    pygame.quit()
 
 def run(config_path):
     config = neat.config.Config(
@@ -228,10 +301,13 @@ def run(config_path):
     stats = neat.StatisticsReporter()
     population.add_reporter(stats)
 
-    winner = population.run(eval_genomes, 50)
+    winner = population.run(eval_genomes, 1)
+    
+    visualize_net(winner, config)
 
     with open('winner.pkl', 'wb') as f:
         pickle.dump(winner, f)
+    pygame.quit()
 
 if __name__ == "__main__":
     local_dir = os.path.dirname(__file__)

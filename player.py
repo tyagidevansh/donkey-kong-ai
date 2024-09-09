@@ -35,6 +35,8 @@ class Player(pygame.sprite.Sprite):
         self.isNearLadder = False
         self.isMoving = False
         self.score = 0
+        self.lastY = self.playerRect.top
+        self.lastScore = self.score
 
     def draw(self):
         if self.isJumping:
@@ -140,7 +142,7 @@ class Player(pygame.sprite.Sprite):
             self.imageJump = pygame.transform.flip(self.imageJump, True, False)
             self.isImageFacingLeft = False
                     
-        if self.playerRect.right + self.horizontalSpeed * dt < window_width - 2:
+        if self.playerRect.right + self.horizontalSpeed * dt < window_width - 10:
             self.playerRect.move_ip(self.horizontalSpeed * dt, 0)
     
     def checkBarrelCollision(self, barrels):
