@@ -35,8 +35,13 @@ class Player(pygame.sprite.Sprite):
         self.isNearLadder = False
         self.isMoving = False
         self.score = 0
-        self.lastY = self.playerRect.top
+        self.lastY = self.playerRect.y
+        self.highest_y = self.playerRect.y
+        self.last_platform_y = self.playerRect.y
+        self.time_on_current_platform = 0
         self.lastScore = self.score
+        self.ladderDistance = []
+        self.closestLadder = 0
 
     def draw(self):
         if self.isJumping:
@@ -109,13 +114,15 @@ class Player(pygame.sprite.Sprite):
 
     def moveLeft(self, ladders, dt):
         self.isMoving = True
+        self.ladderDistance = []
         for ladder in ladders:
             if (not self.playerRect.colliderect(ladder)):
                 self.isNearLadder = False
                 if self.isClimbing:    
                     self.isClimbing = False
             else:
-                self.isNearLadder = True   
+                self.isNearLadder = True 
+            self.ladderDistance.append(ladder.x - self.playerRect.x) 
         
         if (not self.isImageFacingLeft):
             self.imageStand = pygame.transform.flip(self.imageStand, True, False) 
@@ -128,13 +135,15 @@ class Player(pygame.sprite.Sprite):
         
     def moveRight(self, ladders, dt):
         self.isMoving = True
+        self.ladderDistance = []
         for ladder in ladders:
             if (not self.playerRect.colliderect(ladder)):
                 self.isNearLadder = False
                 if self.isClimbing:    
                     self.isClimbing = False
             else:
-                self.isNearLadder = True    
+                self.isNearLadder = True 
+            self.ladderDistance.append(ladder.x - self.playerRect.x)   
 
         if (self.isImageFacingLeft):
             self.imageStand = pygame.transform.flip(self.imageStand, True, False) 
@@ -168,16 +177,35 @@ class Player(pygame.sprite.Sprite):
             
         nearest.sort(key = lambda x:x[0])
         
-        while len(nearest) < 5:
+        while len(nearest) < 2:
             nearest.append([0, 0, 0])
         
-        return nearest[:5]
+        if (len(self.ladderDistance) > 0):
+            self.closestLadder = min(self.ladderDistance, key=lambda x: (abs(x), x))
+        
+        return nearest[:2]
+
+    def update(self, dt):
+        if self.isLineClipping:
+            self.time_on_current_platform += dt
+        else:
+            self.time_on_current_platform = 0
+
+        if self.playerRect.y < self.highest_y:
+            self.highest_y = self.playerRect.y
+
+    def has_reached_new_platform(self):
+        if self.playerRect.y < self.last_platform_y - 50: 
+            self.last_platform_y = self.playerRect.y
+            return True
+        return False
 
     def reset(self):
         self.playerRect.left = 150
         self.playerRect.top = screen_height - 200
         if not self.gameWon:
             self.score = 0
+            self.lastScore = 0
         else:
             self.gameWon = False
         #self.isImageFacingLeft = False

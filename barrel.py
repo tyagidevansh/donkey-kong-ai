@@ -37,7 +37,7 @@ class Barrel(pygame.sprite.Sprite):
 
       self.gravity(dt)
 
-      if self.barrelRect.left <= barrelX + 100 and self.barrelRect.bottom > barrelY:
+      if self.barrelRect.left <= barrelX + 50 and self.barrelRect.bottom > barrelY:
         self.isAlive = False  
       
     self.climbDown(dt)
