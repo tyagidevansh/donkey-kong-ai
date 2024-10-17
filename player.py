@@ -18,17 +18,18 @@ class Player(pygame.sprite.Sprite):
         self.imageClimb1 = pygame.transform.scale(self.imageClimb1, (playerWidth, playerHeight))
         self.imageClimb2 = climbing2
         self.imageClimb2 = pygame.transform.scale(self.imageClimb2, (playerWidth, playerHeight))
-        self.playerRect.left = 150
-        self.playerRect.top = screen_height - 200
+        self.playerRect.left = 100
+        self.playerRect.top = screen_height - 220
         self.player_area = self.playerRect.width * self.playerRect.height       
         self.isImageFacingLeft = False
         self.gameWon = False
         self.framesSinceSwitch = 0
         self.framesSinceSwitchClimb = 0
         self.verticalSpeed = 0
-        self.horizontalSpeed = 200
+        self.horizontalSpeed = 150
         self.acceleration = 15
-        self.jumpSpeed = -7500
+        self.jumpSpeed = -9000
+        self.maxVerticalSpeed = 170
         self.isJumping = False
         self.isLineClipping = False
         self.isClimbing = False
@@ -36,8 +37,14 @@ class Player(pygame.sprite.Sprite):
         self.isMoving = False
         self.score = 0
         self.lastY = self.playerRect.y
-        self.highest_y = self.playerRect.y
-        self.last_platform_y = self.playerRect.y
+        self.initial_y = self.playerRect.y
+        self.highest_y = self.initial_y
+        self.last_platform_y = 800
+        self.time_alive = 0
+        self.barrels_dodged = 0
+        self.ladders_climbed = 0
+        self.platforms_reached = 0
+        self.current_platform = 0
         self.time_on_current_platform = 0
         self.lastScore = self.score
         self.ladderDistance = []
@@ -64,17 +71,30 @@ class Player(pygame.sprite.Sprite):
             self.screen.blit(self.imageStand, self.playerRect)
             self.framesSinceSwitch = 0  
 
-        if self.playerRect.left < peachPos[1] + 90 and self.playerRect.bottom <= peachPos[0]:
+        if self.playerRect.left < peachPos[1] + 120 and self.playerRect.bottom <= peachPos[0]:
             self.score += 1000
             self.gameWon = True
             print("victory")
         
     def gravity(self, platforms, dt):
-        if self.isClimbing:  #no gravity when climbing
+        if self.isClimbing:  # no gravity when climbing
             return
+        
         self.isLineClipping = False
+        
         for platform in platforms:
-            if self.playerRect.colliderect(platform):
+            # if self.verticalSpeed < 0:
+            #     print("vertical speed less than 0")
+            #     if self.playerRect.colliderect(platform):
+            #         print("player collided with rect")
+            #         if self.playerRect.top < platform.bottom and self.isJumping:
+            #             print("player rect's top is above platform's bottom")
+            #             self.verticalSpeed = 0  
+            #             self.playerRect.top = platform.bottom + 1  
+            #             self.isJumping = False
+            #             break
+            
+            if self.verticalSpeed > 0 and self.playerRect.colliderect(platform):
                 self.isLineClipping = True
                 self.verticalSpeed = 0
                 self.playerRect.bottom = platform.top
@@ -83,15 +103,18 @@ class Player(pygame.sprite.Sprite):
 
         if not self.isLineClipping:  
             self.verticalSpeed += self.acceleration
-            self.playerRect.move_ip(0, self.verticalSpeed * dt) #the player is jittering but oh well
-
+            self.playerRect.move_ip(0, self.verticalSpeed * dt)  
+            
     def jump(self, dt):
-        if not self.isJumping and self.isLineClipping and not self.isClimbing:
+        if not self.isJumping and self.isLineClipping and not self.isClimbing and not self.isNearLadder and self.verticalSpeed >= 0:
             self.isJumping = True
-            self.verticalSpeed = self.jumpSpeed * dt
-
+            self.verticalSpeed = self.jumpSpeed * dt   
+        
         if self.isJumping:
-            self.verticalSpeed += self.acceleration
+            if self.verticalSpeed < -self.maxVerticalSpeed:  
+                self.verticalSpeed = -self.maxVerticalSpeed
+            else:
+                self.verticalSpeed += self.acceleration * dt  
 
     def climb(self, ladders, isClimbingUp, dt):
         self.isClimbing = False
@@ -130,9 +153,9 @@ class Player(pygame.sprite.Sprite):
             self.imageJump = pygame.transform.flip(self.imageJump, True, False)
             self.isImageFacingLeft = True
             
-        if self.playerRect.left - self.horizontalSpeed * dt > 2:
+        if self.playerRect.left - self.horizontalSpeed * dt > 10:    
             self.playerRect.move_ip(-self.horizontalSpeed * dt, 0)
-        
+                
     def moveRight(self, ladders, dt):
         self.isMoving = True
         self.ladderDistance = []
@@ -185,21 +208,33 @@ class Player(pygame.sprite.Sprite):
         
         return nearest[:2]
 
-    def update(self, dt):
-        if self.isLineClipping:
-            self.time_on_current_platform += dt
-        else:
-            self.time_on_current_platform = 0
-
+    def update(self, dt, platforms):
+        self.time_alive += dt
         if self.playerRect.y < self.highest_y:
             self.highest_y = self.playerRect.y
+        
+        if self.has_reached_new_platform(platforms):
+            self.platforms_reached += 1
 
-    def has_reached_new_platform(self):
-        if self.playerRect.y < self.last_platform_y - 50: 
-            self.last_platform_y = self.playerRect.y
-            return True
+        if self.isClimbing:
+            self.ladders_climbed += 1
+        
+        self.gravity(platforms, dt)
+        
+        if self.isLineClipping:
+            self.isJumping = False
+
+    def dodge_barrel(self):
+        self.barrels_dodged += 1
+        
+    def has_reached_new_platform(self, platforms):
+        for platform in platforms:
+            if self.playerRect.colliderect(platform):
+                if platform.top < self.last_platform_y:
+                    self.last_platform_y = platform.top
+                    return True
         return False
-
+     
     def reset(self):
         self.playerRect.left = 150
         self.playerRect.top = screen_height - 200

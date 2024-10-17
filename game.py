@@ -1,4 +1,6 @@
+import math
 import pickle
+import time
 import pygame
 import neat
 import random
@@ -8,7 +10,6 @@ from settings import *
 from utils import *
 
 def main():
-  
     clock = pygame.time.Clock()
     running = True
     dt = 0
@@ -48,8 +49,9 @@ def main():
         screen.blit(text, text_rect)
         screen.blit(textLast, textLast_rect)
         
-        player.gravity(platforms, dt)
-
+        #player.gravity(platforms, dt)
+        player.update(dt, platforms)
+        
         keys = pygame.key.get_pressed()
         if keys[pygame.K_SPACE]:
             player.jump(dt)
@@ -108,7 +110,6 @@ def main():
     
     pygame.quit()
 
-        
 def eval_genomes(genomes, config):
     nets = []
     players = []
@@ -136,8 +137,10 @@ def eval_genomes(genomes, config):
         genome.fitness = 0
         ge.append(genome)
     
-    running = True
-    while running and len(players) > 0:
+    max_time = 60  # Maximum time for each generation in seconds
+    start_time = time.time()
+
+    while time.time() - start_time < max_time and len(players) > 0:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
@@ -150,7 +153,7 @@ def eval_genomes(genomes, config):
         
         timeSinceLastSpawn += dt
         
-        if timeSinceLastSpawn > (random.randint(20, 50) / 10):
+        if timeSinceLastSpawn > (random.randint(40, 80) / 10):
             timeSinceLastSpawn = 0
             dk = dk1
             barrels.append(Barrel(screen, platforms, ladders, 110, 215))
@@ -163,13 +166,21 @@ def eval_genomes(genomes, config):
         
         for x, player in enumerate(players):
             player.gravity(platforms, dt)
-
-            inputs = [player.playerRect.x, player.playerRect.y, player.isClimbing, player.isJumping, player.isNearLadder, player.closestLadder]
+     
+            inputs = [
+                player.playerRect.x / window_width,
+                player.playerRect.y / window_height,
+                player.isClimbing,
+                player.isJumping,
+                player.isNearLadder,
+                player.closestLadder / window_width
+            ]
             
+            #2 nearest barrels
             nearest = player.nearestBarrels(barrels)
             for entry in nearest:
-                inputs.append(entry[1])
-                inputs.append(entry[2])
+                inputs.append(entry[1] / window_width)
+                inputs.append(entry[2] / window_height)
 
             inputs = [int(val) if isinstance(val, bool) else val for val in inputs]
 
@@ -177,8 +188,13 @@ def eval_genomes(genomes, config):
                 print("wrong input count")                
 
             #print(inputs)
-
+            #convert outputs from NN to a range of 0 to 1
+            def sigmoid(x):
+                return 1/ (1 + math.exp(-x))
+            
             output = nets[x].activate(inputs)
+            output = [sigmoid(o) for o in output]
+            
             if output[0] > 0.5:  
                 player.jump(dt)
             if output[1] > 0.5:  
@@ -191,7 +207,8 @@ def eval_genomes(genomes, config):
                 player.climb(ladders, False, dt) #climb down
 
             player.draw()
-            player.update(dt)
+            player.update(dt, platforms)
+            #print("player updated, platform: ", player.platforms_reached)
             
         timeSinceLastSpawn += dt
         
@@ -206,47 +223,55 @@ def eval_genomes(genomes, config):
             barrel.update(dt)
             barrel.draw()
 
-        for x, player in enumerate(players):
+        x = 0
+        while x < len(players):
+            player = players[x]
+            height_progress = (player.initial_y - player.highest_y) / window_height
+            platform_progress = player.platforms_reached * (10000 / player.playerRect.top) #every small platform, not just after climbing ladders
+            barrel_dodge_skill = player.barrels_dodged * 0.5 #too simple maybe
+            climbing_skill = player.ladders_climbed * 0.3 #hope it doesnt just stick to the ladder
+            survival_bonus = -player.time_alive * 0.1 #to punish standing in the corner or dilly dallying
+            
+            if player.playerRect.x < 50: #dont go stand in the corner
+                ge[x].fitness -= 1000
+            
+            ge[x].fitness = (
+                height_progress  +
+                platform_progress +
+                barrel_dodge_skill +
+                climbing_skill +
+                survival_bonus
+            )
+            
+            #running to the left corner a huge problem
+
+            # Bonus for reaching Pauline
+            if player.playerRect.left < peachPos[1] + 90 and player.playerRect.bottom <= peachPos[0]:
+                ge[x].fitness += 4000
+                return  #end the generation immediately on victory
+
+            # Penalty for barrel collision
             if player.checkBarrelCollision(barrels):
-                ge[x].fitness -= 100 
+                ge[x].fitness -= 500
                 players.pop(x)
                 nets.pop(x)
                 ge.pop(x)
             else:
-                height_diff = player.lastY - player.playerRect.y
-                if height_diff > 0:
-                    ge[x].fitness += height_diff * 0.1 
-
-                    if player.isClimbing:
-                        ge[x].fitness += 5  
-                    
-                    if player.has_reached_new_platform():
-                        ge[x].fitness += 100  
-
-                    if player.playerRect.y < player.highest_y:
-                        ge[x].fitness += (player.highest_y - player.playerRect.y) * 0.5
-
-                    ge[x].fitness -= player.time_on_current_platform * 0.1  
-
-                    player.lastY = player.playerRect.y
-                # else:
-                #     ge[x].fitness -= height_diff * 0.1
-                    
-                if player.isClimbing:
-                    ge[x].fitness += 5
-                
-                score_diff = player.score - player.lastScore
-                #print("score_diff = ", score_diff)
-                ge[x].fitness += score_diff * 10 
-                player.lastScore = player.score #score already includes reward for pauline and jumping over barrels
-                
-                ge[x].fitness += 0.1 #just for survival
-
+                for barrel in barrels:
+                    if player.playerRect.y < barrel.barrelRect.y and \
+                    abs(player.playerRect.x - barrel.barrelRect.x) < 20:
+                        player.dodge_barrel()
 
                 if ge[x].fitness > best_fitness:
                     best_fitness = ge[x].fitness
                     best_genome = ge[x]
 
+                x += 1  # Only increment x if no player was removed
+
+        for x, player in enumerate(players):
+            ge[x].fitness += player.score
+
+        
         if len(players) == 0:
             break
         
@@ -263,13 +288,67 @@ def eval_genomes(genomes, config):
         pygame.display.flip()
         dt = clock.tick(30) / 1000
 
-def run(config_path):
+def copy_genome(genome, new_id):
+    """
+    Create a complete copy of a genome with a new ID.
+    """
+    new_genome = neat.DefaultGenome(new_id)
+    
+    # Copy all attributes from the original genome
+    new_genome.nodes = dict(genome.nodes)
+    new_genome.connections = dict(genome.connections)
+    new_genome.fitness = genome.fitness
+    
+    return new_genome
+
+def create_population_from_winner(winner_genome, config, pop_size=100):
+    new_population = {}
+    
+    # Create exact copies first
+    for i in range(pop_size):
+        new_population[i] = copy_genome(winner_genome, i)
+    
+    # # Then mutate all except the first one
+    # for i in range(1, pop_size):    
+    #     new_population[i].mutate(config.genome_config)
+    
+    return new_population
+
+def run(config_path, winner_path=None):
     config = neat.config.Config(
         neat.DefaultGenome, neat.DefaultReproduction,
         neat.DefaultSpeciesSet, neat.DefaultStagnation,
         config_path
     )
-    population = neat.Population(config)
+    
+    if winner_path:
+        # Load the winner genome
+        with open(winner_path, 'rb') as f:
+            winner_genome = pickle.load(f)
+        
+        # Verify the winner genome's structure
+        print(f"Winner genome nodes: {len(winner_genome.nodes)}")
+        print(f"Winner genome connections: {len(winner_genome.connections)}")
+        
+        # Create initial population from winner
+        initial_population = create_population_from_winner(winner_genome, config)
+        
+        # Verify the copied genome's structure
+        first_copy = initial_population[0]
+        print(f"First copy nodes: {len(first_copy.nodes)}")
+        print(f"First copy connections: {len(first_copy.connections)}")
+        
+        # Create a new population
+        population = neat.Population(config)
+        
+        # Replace its population with our initial population
+        population.population = initial_population
+        
+        # Force immediate speciation of the population
+        population.species.speciate(config, population.population, 0)
+    else:
+        population = neat.Population(config)
+    
     population.add_reporter(neat.StdOutReporter(True))
     stats = neat.StatisticsReporter()
     population.add_reporter(stats)
@@ -287,8 +366,8 @@ def run(config_path):
         
         return fitnesses
 
-    winner = population.run(eval_genomes_wrapper, 2)  # number of generations
-    
+    winner = population.run(eval_genomes_wrapper, 200)
+    print(winner)
     visualize_net(winner, config)
     with open('winner.pkl', 'wb') as f:
         pickle.dump(winner, f)
@@ -299,5 +378,6 @@ def run(config_path):
 if __name__ == "__main__":
     local_dir = os.path.dirname(__file__)
     config_path = os.path.join(local_dir, "config-feedforward.txt")
-    run(config_path)
-    #main()
+    winner_path = os.path.join(local_dir, "winner.pkl")
+    run(config_path, winner_path)
+    # main()

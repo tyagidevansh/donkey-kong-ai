@@ -16,7 +16,7 @@ slope = section_height // 8
 peachPos = (190, 120)
 
 playerWidth, playerHeight = 30, 30
-barrelX, barrelY = 70, screen_height - 250
+barrelX, barrelY = 50, screen_height - 250
 
 barrel_img1 = pygame.transform.scale(pygame.image.load('assets/images/barrels/barrel.png'),
                                     (playerWidth, playerHeight))
@@ -86,7 +86,7 @@ levels = [{'bridges': [(1, start_y, 15), (16, start_y - slope, 3),
                        (19, row2_y - 2 * slope, 3), (16, row2_y - 3 * slope, 3),
                        (13, row2_y - 4 * slope, 3), (10, row2_y - 5 * slope, 3),
                        (7, row2_y - 6 * slope, 3), (4, row2_y - 7 * slope, 3),
-                       (2, row2_y - 8 * slope, 2), (4, row3_y, 3),
+                       (1, row2_y - 8 * slope, 3), (4, row3_y, 3),
                        (7, row3_y - slope, 3), (10, row3_y - 2 * slope, 3),
                        (13, row3_y - 3 * slope, 3), (16, row3_y - 4 * slope, 3),
                        (19, row3_y - 5 * slope, 3), (22, row3_y - 6 * slope, 3),
